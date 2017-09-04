@@ -41,6 +41,13 @@ public class TestClassForInfoWrapper {
 			System.out.println( aStr );
 		} else {
 			System.out.println( aDbl );
+			
+			int one, two, three;
+			one = 0;
+			two = 1;
+			three = 2;
+			
+			System.out.println( calcSumFromTo(calsSumFromTo( one, two), three ) );
 		}
 	}
 	
