@@ -76,7 +76,7 @@ public class InfoWrapperBuilderTest extends TestCase {
 			List<VariableInfoWrapper> locVars = symbolTable.getAllLocalVarInfoWrapper();
 
 			assertNotNull(locVars);
-			assertEquals(13, locVars.size());
+			assertEquals(14, locVars.size());
 
 			List<VariableInfoWrapper> allInts = symbolTable.getAllVarInfoWrapperWithType("int");
 
@@ -156,7 +156,7 @@ public class InfoWrapperBuilderTest extends TestCase {
 			List<VariableInfoWrapper> locVars = symbolTable.getAllLocalVarInfoWrapper();
 
 			assertNotNull(locVars);
-			assertEquals(14, locVars.size());
+			assertEquals(15, locVars.size());
 
 			List<VariableInfoWrapper> allInts = symbolTable.getAllVarInfoWrapperWithType("int");
 
@@ -235,9 +235,12 @@ public class InfoWrapperBuilderTest extends TestCase {
 			List<VariableInfoWrapper> locVars = symbolTable.getAllLocalVarInfoWrapper();
 
 			assertNotNull(locVars);
-			assertEquals(20, locVars.size()); // 15 regular ones + 2 from outer
+			assertEquals(21, locVars.size()); // 15 regular ones + 2 from outer
 												// loop + 1 from inner loop + 2
 												// from deepest loop
+			
+			// check if the string array was handled properly
+			assertEquals( locVars.get(7).getType(), "string[]" );
 
 			List<VariableInfoWrapper> allInts = symbolTable.getAllVarInfoWrapperWithType("int");
 
@@ -368,7 +371,7 @@ public class InfoWrapperBuilderTest extends TestCase {
 
 		// get the for stmt
 		List<Node> children = block.getChildNodes();
-		return children.get(17);
+		return children.get(18);
 	}
 	
 	/**

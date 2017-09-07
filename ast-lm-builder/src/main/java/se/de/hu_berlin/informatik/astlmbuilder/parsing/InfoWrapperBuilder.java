@@ -1,9 +1,11 @@
 package se.de.hu_berlin.informatik.astlmbuilder.parsing;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
+import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
@@ -52,7 +54,7 @@ public class InfoWrapperBuilder {
 		List<Optional<Node>> nodeHistory = getNodeHistory(aNode, symbolTableTmp);
 		SymbolTable realSymbolTable = new SymbolTable( symbolTableTmp );
 		
-		InformationWrapper result = new InformationWrapper(nodeHistory, classHistory, realSymbolTable);
+		InformationWrapper result = new InformationWrapper(nodeHistory, classHistory, realSymbolTable,  aNode);
 		return result;
 	}
 
@@ -79,12 +81,13 @@ public class InfoWrapperBuilder {
 	 * @return
 	 * A variable information wrapper object
 	 */
-	private static VariableInfoWrapper buildVarInfoWrapper( Node aNode, String aType, String aName, String aLastKnownValue ) {
+	private static VariableInfoWrapper buildVarInfoWrapper( Node aNode, String aType, String aName, String aLastKnownValue, 
+			EnumSet<Modifier> aModifiers ) {
 
 		boolean primitive = hasPrimitiveType( aType );
 		VariableScope scope = getScope( aNode );
 		
-		return new VariableInfoWrapper( aType, aName, aLastKnownValue, primitive, scope, aNode );
+		return new VariableInfoWrapper( aType, aName, aLastKnownValue, primitive, scope, aModifiers, aNode );
 	}
 	
 	/**
@@ -94,7 +97,7 @@ public class InfoWrapperBuilder {
 	 * @return
 	 * An info object for this variable declaration
 	 */
-	private static VariableInfoWrapper buildVarInfoWrapperFromVarDec( VariableDeclarator aVD ) {
+	private static VariableInfoWrapper buildVarInfoWrapperFromVarDec( VariableDeclarator aVD, EnumSet<Modifier> aModifiers ) {
 		String name = defStrValue;
 		String type = defStrValue;
 		String lastKnownValue = defStrValue;	
@@ -112,8 +115,8 @@ public class InfoWrapperBuilder {
 				lastKnownValue = aVD.getInitializer().get().toString();
 			}
 		}
-		
-		return buildVarInfoWrapper( aVD, type, name, lastKnownValue );
+
+		return buildVarInfoWrapper( aVD, type, name, lastKnownValue, aModifiers );
 	}
 	
 	/**
@@ -122,9 +125,9 @@ public class InfoWrapperBuilder {
 	 * @return
 	 * An info object for this variable declaration
 	 */
-	private static VariableInfoWrapper buildVarInfoWrapperFromFieldDeclaration( FieldDeclaration aNode ) {	
-		VariableDeclarator vd = aNode.getVariable(0);
-		return buildVarInfoWrapperFromVarDec( vd );
+	private static VariableInfoWrapper buildVarInfoWrapperFromFieldDeclaration( FieldDeclaration aFieldDec ) {	
+		VariableDeclarator vd = aFieldDec.getVariable(0);
+		return buildVarInfoWrapperFromVarDec( vd, aFieldDec.getModifiers() );
 	}
 	
 	/**
@@ -134,15 +137,15 @@ public class InfoWrapperBuilder {
 	 * @return
 	 * An info object for this variable declaration
 	 */
-	private static VariableInfoWrapper buildVarInfoWrapperFromParameter( Parameter aNode ) {
+	private static VariableInfoWrapper buildVarInfoWrapperFromParameter( Parameter aPar ) {
 		String name = defStrValue;
 		String type = defStrValue;
 		String lastKnownValue = defStrValue;	
 		
-		type = aNode.getType().toString().trim().toLowerCase();
-		name = aNode.getNameAsString();
+		type = aPar.getType().toString().trim().toLowerCase();
+		name = aPar.getNameAsString();
 		
-		return buildVarInfoWrapper( aNode, type, name, lastKnownValue );
+		return buildVarInfoWrapper( aPar, type, name, lastKnownValue, aPar.getModifiers() );
 	}
 	
 	/**
@@ -157,7 +160,7 @@ public class InfoWrapperBuilder {
 		if( expr instanceof VariableDeclarationExpr ) {
 			VariableDeclarationExpr vde = (VariableDeclarationExpr) expr;
 			for( VariableDeclarator vd : vde.getVariables() ) {
-				aSymbolTable.add( buildVarInfoWrapperFromVarDec( vd ));
+				aSymbolTable.add( buildVarInfoWrapperFromVarDec( vd, vde.getModifiers() ));
 			}		
 		}
 	}
@@ -276,7 +279,7 @@ public class InfoWrapperBuilder {
 				if( expr instanceof VariableDeclarationExpr ) {
 					VariableDeclarationExpr vde = (VariableDeclarationExpr) expr;
 					for( VariableDeclarator vd : vde.getVariables() ) {
-						aSymbolTable.add( buildVarInfoWrapperFromVarDec( vd ));
+						aSymbolTable.add( buildVarInfoWrapperFromVarDec( vd, vde.getModifiers() ));
 					}
 				} else {			
 					checkAndBuildVariableInfoWrapper( expr, aSymbolTable );
@@ -287,7 +290,7 @@ public class InfoWrapperBuilder {
 			VariableDeclarationExpr vde = foreach.getVariable();
 			
 			for( VariableDeclarator vd : vde.getVariables() ) {
-				aSymbolTable.add( buildVarInfoWrapperFromVarDec( vd ));
+				aSymbolTable.add( buildVarInfoWrapperFromVarDec( vd, vde.getModifiers() ));
 			}
 		}
 		

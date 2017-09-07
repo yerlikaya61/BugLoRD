@@ -902,6 +902,8 @@ public interface INodeCreator {
 
 		String identifier = getParser().parseStringValueFromToken(memberData.get(0));
 
+		// TODO add check if the identifier is some kind of default value
+		
 		return new SimpleName(identifier);
 	}
 

@@ -103,8 +103,8 @@ import se.de.hu_berlin.informatik.astlmbuilder.parsing.InformationWrapper;
 
 public interface INodeGuesser extends INodeGuesserBasics {
 
-	public final static String DEFAULT_STRING_LITERAL_VALUE = "default string value";
-	public final static String DEFAULT_SIMPLE_NAME_VALUE = "default simple name value";
+	public final static String DEFAULT_STRING_LITERAL_VALUE = "DSLV";
+	public final static String DEFAULT_SIMPLE_NAME_VALUE = "DSNV";
 	
 	/**
 	 * This value will be used if no other strings are available but the node needs
@@ -826,6 +826,8 @@ public interface INodeGuesser extends INodeGuesserBasics {
 		info = updateGeneralInfo(Name.class, info, false);
 
 		// TODO: this is a recursive call that will possibly call itself indefinitely...
+		// this should be separated into  one method that searches for a name from the info object
+		// and one that generates a name that is not in the symbol table
 		Name qualifier = guessName(info);
 		String identifier = guessStringValue(info);
 		NodeList<AnnotationExpr> annotations = guessList(AnnotationExpr.class, info);

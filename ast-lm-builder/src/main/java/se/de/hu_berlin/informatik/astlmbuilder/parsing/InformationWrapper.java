@@ -1,6 +1,5 @@
 package se.de.hu_berlin.informatik.astlmbuilder.parsing;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +31,13 @@ public class InformationWrapper {
 		this.nodeHistory = nodeHistory;
 		this.classHistory = classHistory;
 		this.symbolTable = aSymbolTable;
+	}
+	
+	public InformationWrapper(List<Optional<Node>> nodeHistory, List<Class<? extends Node>> classHistory, SymbolTable aSymbolTable, Node aOriginalNode ) {
+		this.nodeHistory = nodeHistory;
+		this.classHistory = classHistory;
+		this.symbolTable = aSymbolTable;
+		this.node = aOriginalNode;
 	}
 
 	/**

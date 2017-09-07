@@ -1,31 +1,30 @@
 package se.de.hu_berlin.informatik.astlmbuilder.parsing;
 
+import java.util.EnumSet;
+
+import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.Node;
 
 /**
- * A wrapper object for different types of variables found in the history of
- * a node.
+ * A wrapper object for different types of variables found in the history of a
+ * node.
  * 
  */
 public class VariableInfoWrapper {
 
 	public static final String UNKNOWN_STR_VALUE = VariableScope.UNKNOWN.toString();
-	
+
 	public enum VariableScope {
-		GLOBAL,
-		PARAMETER,
-		LOCAL,
-		UNKNOWN
+		GLOBAL, PARAMETER, LOCAL, UNKNOWN
 	}
-	
+
 	private String type = UNKNOWN_STR_VALUE;
 	private String name = UNKNOWN_STR_VALUE;
 	private String lastKnownValue = UNKNOWN_STR_VALUE;
 	private boolean primitive = false;
 	private VariableScope scope = VariableScope.UNKNOWN;
-	// can be null if we do not need the original node or lose it for some reason
-	private Node originalNode = null;
-	
+	private EnumSet<Modifier> modifiers;
+
 	/**
 	 * Constructor for a variable info wrapper object
 	 * 
@@ -39,17 +38,21 @@ public class VariableInfoWrapper {
 	 * Flag if the variable is a primitive
 	 * @param aScope
 	 * Global, Argument, Local or unknown
+	 * @param aModifiers
+	 * The modifiers of the variable
 	 * @param aOriginalNode
 	 * The complete node in case we want to get some additional data
 	 */
-	public VariableInfoWrapper( String aType, String aName, String aLastKnownValue, boolean aIsPrimitive, VariableScope aScope, Node aOriginalNode ) {
+	public VariableInfoWrapper(String aType, String aName, String aLastKnownValue, boolean aIsPrimitive,
+			VariableScope aScope, EnumSet<Modifier> aModifiers, Node aOriginalNode) {
 		type = aType == null ? UNKNOWN_STR_VALUE : aType.trim().toLowerCase();
 		name = aName == null ? UNKNOWN_STR_VALUE : aName.trim().toLowerCase();
-		lastKnownValue =  aLastKnownValue == null ? UNKNOWN_STR_VALUE : aLastKnownValue; // no trim or lower case needed here
+		lastKnownValue = aLastKnownValue == null ? UNKNOWN_STR_VALUE : aLastKnownValue;
 		primitive = aIsPrimitive;
 		scope = aScope;
+		modifiers = aModifiers;
 	}
-	
+
 	/**
 	 * Returns the type of the variable
 	 * @return The type of the variable. Integer for example.
@@ -57,17 +60,15 @@ public class VariableInfoWrapper {
 	public String getType() {
 		return type;
 	}
-	
+
 	public void setType(String type) {
 		this.type = type;
 	}
 
-	
 	public String getName() {
 		return name;
 	}
 
-	
 	public void setName(String name) {
 		this.name = name;
 	}
@@ -78,7 +79,7 @@ public class VariableInfoWrapper {
 	public String getLastKnownValue() {
 		return lastKnownValue;
 	}
-	
+
 	public void setLastKnownValue(String lastKnownValue) {
 		this.lastKnownValue = lastKnownValue;
 	}
@@ -90,32 +91,28 @@ public class VariableInfoWrapper {
 		return primitive;
 	}
 
-	
 	public void setPrimitive(boolean primitive) {
 		this.primitive = primitive;
 	}
 
-	
 	public VariableScope getScope() {
 		return scope;
 	}
 
-	
 	public void setScope(VariableScope scope) {
 		this.scope = scope;
 	}
 
-	
-	public Node getOriginalNode() {
-		return originalNode;
+	public EnumSet<Modifier> getModifiers() {
+		return modifiers;
 	}
 
-	
-	public void setOriginalNode(Node originalNode) {
-		this.originalNode = originalNode;
+	public void setModifiers(EnumSet<Modifier> modifiers) {
+		this.modifiers = modifiers;
 	}
-	
+
 	public String toString() {
-		return "VIW(t=" + type + ", n=" + name + ", v=" + lastKnownValue + ", s=" + scope + ", p=" + primitive + ")";
+		return "VIW(t=" + type + ", n=" + name + ", v=" + lastKnownValue + ", s=" + scope + ", p=" + primitive
+				+ ", mods=" + modifiers.toString() + ")";
 	}
 }
