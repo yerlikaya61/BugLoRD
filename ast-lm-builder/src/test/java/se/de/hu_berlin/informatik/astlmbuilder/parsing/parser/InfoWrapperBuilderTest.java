@@ -301,13 +301,54 @@ public class InfoWrapperBuilderTest extends TestCase {
 			
 			List<VariableInfoWrapper> allLocals = symbolTable.getAllLocalVarInfoWrapper();
 			assertNotNull( allLocals );
-			assertEquals( allLocals.size(), 3); // there should be three ints
+			assertEquals( 3, allLocals.size()); // there should be three ints
 
 		} catch (FileNotFoundException e) {
 			Log.err(this, e);
 		}
 
 		Log.out(this, "Finished multiple variable declarations at once test." );
+	}
+	
+	@Test
+	public void testBuildInfoWrapperVarDecsWithQualifier() {
+		Log.out(this, "Started variable declarations with qualifiers test.");
+
+		ClassLoader classLoader = getClass().getClassLoader();
+
+		File testFile = new File(classLoader.getResource("test_files/TestClassForInfoWrapper.java").getFile());
+
+		if (!testFile.exists()) {
+			Log.err(this, "Could not find the test file at ", testFile.getAbsolutePath());
+			return;
+		}
+
+		CompilationUnit cu = null;
+
+		try {
+			cu = JavaParser.parse(testFile);
+
+			// search for the else block in the parameter method
+			BlockStmt blockStmt = getMethodBodyOfgetSomeParameters( cu );
+			Node sysPrint = blockStmt.getChildNodes().get( 7 );
+			
+			InformationWrapper iw = InfoWrapperBuilder.buildInfoWrapperForNode(sysPrint);
+			assertNotNull(iw);
+			assertNotNull(iw.getNodeHistory());
+
+			SymbolTable symbolTable = iw.getSymbolTable();
+
+			assertNotNull(symbolTable);
+			
+			List<VariableInfoWrapper> allLocals = symbolTable.getAllLocalVarInfoWrapper();
+			assertNotNull( allLocals );
+			assertEquals( 3, allLocals.size() ); // there should be three private class objects
+
+		} catch (FileNotFoundException e) {
+			Log.err(this, e);
+		}
+
+		Log.out(this, "Started variable declarations with qualifiers test." );
 	}
 	
 	/**
@@ -376,27 +417,16 @@ public class InfoWrapperBuilderTest extends TestCase {
 	
 	/**
 	 * Works only for the test class in the resource directory Currently
-	 * searches for the for statement in the calc sum method
+	 * searches for the else statement in the get some parameters method
 	 * 
 	 * @param aCU
 	 * The compilation unit
-	 * @return The loop node in the calcSumFromTo method
+	 * @return The else node in the get some parameters method
 	 */
 	private Node getElseNode(CompilationUnit aCU) {
 
-		// get the class declaration
-		ClassOrInterfaceDeclaration cdec = getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
-		if (cdec == null) {
-			return null;
-		}
-
-		MethodDeclaration getSP = getNodeFromChildren(cdec, MethodDeclaration.class, "getSomeParameters");
-		if (getSP == null) {
-			return null;
-		}
-
 		// get the block statement
-		BlockStmt block = getNodeFromChildren(getSP, BlockStmt.class);
+		BlockStmt block = getMethodBodyOfgetSomeParameters( aCU );
 		if (block == null) {
 			return null;
 		}
@@ -413,6 +443,32 @@ public class InfoWrapperBuilderTest extends TestCase {
 		// the last statement is the system print after some variable decs and assignments
 		List<Node> children = elseStmt.getChildNodes();
 		return children.get(5);
+	}
+	
+	/**
+	 * Searches for the body node of the method getSomeParameters
+	 * 
+	 * @param aCU
+	 * The compilation unit
+	 * @return
+	 * The body node in the getSomeParameters method
+	 */
+	private BlockStmt getMethodBodyOfgetSomeParameters(CompilationUnit aCU) {
+
+		// get the class declaration
+		ClassOrInterfaceDeclaration cdec = getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
+		if (cdec == null) {
+			return null;
+		}
+
+		MethodDeclaration getSP = getNodeFromChildren(cdec, MethodDeclaration.class, "getSomeParameters");
+		if (getSP == null) {
+			return null;
+		}
+
+		// get the block statement
+		BlockStmt block = getNodeFromChildren(getSP, BlockStmt.class);
+		return block;
 	}
 
 	/**

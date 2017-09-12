@@ -105,6 +105,7 @@ public interface INodeGuesser extends INodeGuesserBasics {
 
 	public final static String DEFAULT_STRING_LITERAL_VALUE = "DSLV";
 	public final static String DEFAULT_SIMPLE_NAME_VALUE = "DSNV";
+	public final static String DEFAULT_NEW_NAME = "newMutationVar"; // used for variables that are added by mutations
 	
 	/**
 	 * This value will be used if no other strings are available but the node needs
@@ -133,9 +134,6 @@ public interface INodeGuesser extends INodeGuesserBasics {
 
 		return info;
 	}
-
-	// TODO: fill information wrapper with useful information on the way...
-	// (e.g. last seen nodes, etc.)
 
 	default public ConstructorDeclaration guessConstructorDeclaration(InformationWrapper info) {
 		info = updateGeneralInfo(ConstructorDeclaration.class, info, false);
@@ -822,17 +820,29 @@ public interface INodeGuesser extends INodeGuesserBasics {
 		return new UnknownType();
 	}
 
+	/**
+	 * Creates a name that is not already the name of another variable in the info wrapper
+	 * and hopefully not a name that is used in the code later by already existing code.
+	 * @param info
+	 * The info wrapper object with a symbol table that is used as a black list for valid names
+	 * @return
+	 * A name object with a new name
+	 */
 	public default Name guessName(InformationWrapper info) {
 		info = updateGeneralInfo(Name.class, info, false);
-
-		// TODO: this is a recursive call that will possibly call itself indefinitely...
-		// this should be separated into  one method that searches for a name from the info object
-		// and one that generates a name that is not in the symbol table
-		Name qualifier = guessName(info);
-		String identifier = guessStringValue(info);
+		
+		String id = DEFAULT_NEW_NAME;
+		
+		// in case the variable name is already taken a counter is added and increased until we have a unique name
+		int counter = 0;
+		while( info.getSymbolTable().localListContainsName( id ) ) {
+			id = DEFAULT_NEW_NAME + "_" + counter++;
+		}
+	
+		Name qualifier = null; // TODO will we ever use the qualifier? The symbol table will not fill it
 		NodeList<AnnotationExpr> annotations = guessList(AnnotationExpr.class, info);
 
-		return new Name(qualifier, identifier, annotations);
+		return new Name(qualifier, id, annotations);
 	}
 
 	public default SimpleName guessSimpleName(InformationWrapper info) {

@@ -11,13 +11,12 @@ import com.github.javaparser.ast.expr.AssignExpr.Operator;
 import com.github.javaparser.ast.type.PrimitiveType.Primitive;
 
 import se.de.hu_berlin.informatik.astlmbuilder.parsing.InformationWrapper;
-import se.de.hu_berlin.informatik.astlmbuilder.parsing.guesser.INodeGuesser;
 
 /**
  * A simple implementation of the node guesser (only for testing at the moment)
  */
 public class SimpleNodeGuesser implements INodeGuesser {
-
+	
 	@Override
 	public <T extends Node> T guessNode(Class<T> expectedSuperClazz, InformationWrapper info) {
 		// TODO implement

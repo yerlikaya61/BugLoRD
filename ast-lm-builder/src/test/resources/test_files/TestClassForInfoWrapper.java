@@ -5,6 +5,24 @@ package se.de.hu_berlin.informatik.astlmbuilder.parsing.parser;
  */
 public class TestClassForInfoWrapper {
 
+	private class InsideTestClass {
+		public int oneInt = 1;
+		public int secondInt = 2;
+		public int thirdInt = 3;
+		
+		public int getOneInt() {
+			return oneInt;
+		}
+		
+		public void setOneInt( int aOneInt ) {
+			oneInt = aOneInt;
+		}
+		
+		public String toString() {
+			return "1: " + oneInt + ", 2: " + secondInt + ", 3: " + thridInt;
+		}
+	}
+	
 	// lets see if they are accessible in some way
 	public static final String A_CONSTANT = "Hi";
 	public final String A_STRING = "World";
@@ -49,6 +67,17 @@ public class TestClassForInfoWrapper {
 			
 			System.out.println( calcSumFromTo(calsSumFromTo( one, two), three ) );
 		}
+		
+		// those are used to test the qualifier attribut of the name objects
+		InsideTestClass one = new InsideTestClass();
+		InsideTestClass two = new InsideTestClass();
+		InsideTestClass three = new InsideTestClass();
+		
+		one.setOneInt( 100 );
+		two.oneInt = 200;
+		three.oneInt = three.getOneInt();
+		
+		System.out.println( one.toString() + " / " + two.toString() + " / " + three.toString());
 	}
 	
 	private int calcSumFromTo( int aStartIdx, int aEndIdx ) {
