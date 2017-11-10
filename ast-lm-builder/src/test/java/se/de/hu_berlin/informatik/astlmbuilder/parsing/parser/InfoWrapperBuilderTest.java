@@ -330,7 +330,7 @@ public class InfoWrapperBuilderTest extends TestCase {
 
 			// search for the else block in the parameter method
 			BlockStmt blockStmt = getMethodBodyOfgetSomeParameters( cu );
-			Node sysPrint = blockStmt.getChildNodes().get( 7 );
+			Node sysPrint = blockStmt.getChildNodes().get( 8 );
 			
 			InformationWrapper iw = InfoWrapperBuilder.buildInfoWrapperForNode(sysPrint);
 			assertNotNull(iw);
@@ -348,7 +348,7 @@ public class InfoWrapperBuilderTest extends TestCase {
 			Log.err(this, e);
 		}
 
-		Log.out(this, "Started variable declarations with qualifiers test." );
+		Log.out(this, "Finished variable declarations with qualifiers test." );
 	}
 	
 	/**

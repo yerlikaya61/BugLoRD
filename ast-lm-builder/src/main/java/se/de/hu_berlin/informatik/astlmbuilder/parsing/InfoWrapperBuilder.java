@@ -12,10 +12,12 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.BooleanLiteralExpr;
 import com.github.javaparser.ast.expr.CharLiteralExpr;
 import com.github.javaparser.ast.expr.DoubleLiteralExpr;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.IntegerLiteralExpr;
 import com.github.javaparser.ast.expr.LongLiteralExpr;
 import com.github.javaparser.ast.expr.NullLiteralExpr;
@@ -157,11 +159,28 @@ public class InfoWrapperBuilder {
 	 */
 	private static void buildVarInfoWrapperFromExpressionStmt( ExpressionStmt aNode, List<VariableInfoWrapper> aSymbolTable ) {
 		Expression expr = aNode.getExpression();
+		
 		if( expr instanceof VariableDeclarationExpr ) {
 			VariableDeclarationExpr vde = (VariableDeclarationExpr) expr;
 			for( VariableDeclarator vd : vde.getVariables() ) {
 				aSymbolTable.add( buildVarInfoWrapperFromVarDec( vd, vde.getModifiers() ));
 			}		
+		}
+		
+		// TODO maybe add assignments to variables as well to find the last known value of a variable
+		if( expr instanceof AssignExpr ) {
+			AssignExpr ae = (AssignExpr) expr;
+			Expression target = ae.getTarget();
+			
+			if( target instanceof FieldAccessExpr ) {
+				FieldAccessExpr fae = (FieldAccessExpr) target;
+				String completeName = fae.getScope().toString(); // this is the qualifier
+				
+				
+			}
+			// TODO implement
+			// TODO check if the variable is already part of the symbol table
+			// TODO check if the variable has a qualifier that has more valid variables
 		}
 	}
 	
@@ -308,17 +327,19 @@ public class InfoWrapperBuilder {
 		
 		if( aNode instanceof FieldDeclaration ) {
 			aSymbolTable.add( buildVarInfoWrapperFromFieldDeclaration( (FieldDeclaration) aNode ));
+			return;
 		}
 		
 		if( aNode instanceof Parameter ) {
 			aSymbolTable.add( buildVarInfoWrapperFromParameter( (Parameter) aNode ));
+			return;
 		}
 		
 		if( aNode instanceof ExpressionStmt ) {
 			buildVarInfoWrapperFromExpressionStmt( (ExpressionStmt) aNode, aSymbolTable );
+			return;
 		}
-		
-		// TODO maybe add assignments to variables as well to find the last known value of a variable
+
 	}
 	
 	private static List<Class<? extends Node>> getClassHistory(Node aNode) {

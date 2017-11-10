@@ -10,6 +10,8 @@ public class TestClassForInfoWrapper {
 		public int secondInt = 2;
 		public int thirdInt = 3;
 		
+		public InsideTestClass another = null;
+		
 		public int getOneInt() {
 			return oneInt;
 		}
@@ -76,6 +78,8 @@ public class TestClassForInfoWrapper {
 		one.setOneInt( 100 );
 		two.oneInt = 200;
 		three.oneInt = three.getOneInt();
+		
+		one.another = new InsideTestClass();
 		
 		System.out.println( one.toString() + " / " + two.toString() + " / " + three.toString());
 	}
