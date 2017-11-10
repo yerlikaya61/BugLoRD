@@ -12,14 +12,14 @@ import se.de.hu_berlin.informatik.utils.miscellaneous.Log;
 import se.de.hu_berlin.informatik.utils.processors.AbstractProcessor;
 import se.de.hu_berlin.informatik.utils.processors.sockets.pipe.PipeLinker;
 
-public abstract class AbstractBuggyFixedEntity implements BuggyFixedEntity {
+public abstract class AbstractBuggyFixedEntity<T extends Entity> implements BuggyFixedEntity<T> {
 
 	private Map<String, List<ChangeWrapper>> changesMap = null;
 
-	private Entity bug;
-	private Entity fix;
+	private T bug;
+	private T fix;
 
-	public AbstractBuggyFixedEntity(Entity bug, Entity fix) {
+	public AbstractBuggyFixedEntity(T bug, T fix) {
 		this.bug = bug;
 		this.fix = fix;
 	}
@@ -36,8 +36,8 @@ public abstract class AbstractBuggyFixedEntity implements BuggyFixedEntity {
 
 	private Map<String, List<ChangeWrapper>> computeAllChanges(boolean executionModeBug, boolean resetBug,
 			boolean deleteBugAfterwards, boolean executionModeFix, boolean resetFix, boolean deleteFixAfterwards) {
-		Entity bug = getBuggyVersion();
-		Entity fix = getFixedVersion();
+		T bug = getBuggyVersion();
+		T fix = getFixedVersion();
 
 		if (resetBug) {
 			if (!bug.resetAndInitialize(executionModeBug, true)) {
@@ -96,7 +96,7 @@ public abstract class AbstractBuggyFixedEntity implements BuggyFixedEntity {
 	// return null;
 	// }
 
-	private List<ChangeWrapper> getChanges(Path path, Entity bug, boolean executionModeBug, Entity fix,
+	private List<ChangeWrapper> getChanges(Path path, T bug, boolean executionModeBug, T fix,
 			boolean executionModeFix) {
 		return ChangeCheckerUtils.checkForChanges(
 				bug.getWorkDir(executionModeBug).resolve(bug.getMainSourceDir(executionModeBug)).resolve(path).toFile(),
@@ -105,12 +105,12 @@ public abstract class AbstractBuggyFixedEntity implements BuggyFixedEntity {
 	}
 
 	@Override
-	public Entity getBuggyVersion() {
+	public T getBuggyVersion() {
 		return bug;
 	}
 
 	@Override
-	public Entity getFixedVersion() {
+	public T getFixedVersion() {
 		return fix;
 	}
 

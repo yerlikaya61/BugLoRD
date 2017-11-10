@@ -6,7 +6,7 @@ import java.util.Map;
 import se.de.hu_berlin.informatik.changechecker.ChangeWrapper;
 import se.de.hu_berlin.informatik.utils.miscellaneous.Log;
 
-public interface BuggyFixedEntity {
+public interface BuggyFixedEntity<T extends Entity> {
 	
 //	default public Entity getBuggyEntity(BuggyFixedEntity entity) {
 //		return entity.getBuggyVersion();
@@ -16,9 +16,9 @@ public interface BuggyFixedEntity {
 //		return entity.getFixedVersion();
 //	}
 	
-	public Entity getBuggyVersion();
+	public T getBuggyVersion();
 	
-	public Entity getFixedVersion();
+	public T getFixedVersion();
 
 //	public List<String> getModifiedClasses();
 	
@@ -47,7 +47,7 @@ public interface BuggyFixedEntity {
 	}
 
 	public default boolean requireBug(boolean executionMode) {
-		Entity bug = getBuggyVersion();
+		T bug = getBuggyVersion();
 		if (!getBuggyVersion().getWorkDir(executionMode).toFile().exists()) {
 			bug.resetAndInitialize(executionMode, true);
 			return false;
@@ -56,13 +56,24 @@ public interface BuggyFixedEntity {
 	}
 	
 	public default boolean requireFix(boolean executionMode) {
-		Entity fix = getFixedVersion();
+		T fix = getFixedVersion();
 		if (!getFixedVersion().getWorkDir(executionMode).toFile().exists()) {
 			fix.resetAndInitialize(executionMode, true);
 			return false;
 		}
 		return true;
 	}
+	
+	/**
+	 * Should return a List of Strings which contains all modified source files with one file per line.
+	 * <p> line format: {@code qualified.class.name}
+	 * <p> example: {@code com.google.javascript.jscomp.FlowSensitiveInlineVariables}
+	 * @param executionMode
+	 * whether the execution directory should be used to make the necessary system call
+	 * @return
+	 * the list of modified classes
+	 */
+	public List<String> getModifiedClasses(boolean executionMode) throws UnsupportedOperationException;
 	
 	/**
 	 * @return

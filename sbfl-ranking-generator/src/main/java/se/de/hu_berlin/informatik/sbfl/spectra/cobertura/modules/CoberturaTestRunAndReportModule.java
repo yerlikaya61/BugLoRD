@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+
 import net.sourceforge.cobertura.coveragedata.ClassData;
 import net.sourceforge.cobertura.coveragedata.CoverageDataFileHandler;
 import net.sourceforge.cobertura.coveragedata.ProjectData;
@@ -17,17 +18,18 @@ import net.sourceforge.cobertura.dsl.Arguments;
 import net.sourceforge.cobertura.dsl.ArgumentsBuilder;
 import net.sourceforge.cobertura.reporting.ComplexityCalculator;
 import net.sourceforge.cobertura.reporting.NativeReport;
-import se.de.hu_berlin.informatik.sbfl.StatisticsData;
-import se.de.hu_berlin.informatik.sbfl.TestStatistics;
-import se.de.hu_berlin.informatik.sbfl.TestWrapper;
-import se.de.hu_berlin.informatik.sbfl.spectra.modules.TestRunModule;
+import se.de.hu_berlin.informatik.java7.testrunner.TestWrapper;
+import se.de.hu_berlin.informatik.junittestutils.data.StatisticsData;
+import se.de.hu_berlin.informatik.junittestutils.data.TestStatistics;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunAndReportModule;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunInNewJVMModule;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunInNewJVMModuleWithJava7Runner;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunLocallyModule;
 import se.de.hu_berlin.informatik.stardust.provider.cobertura.CoberturaReportWrapper;
 import se.de.hu_berlin.informatik.stardust.provider.cobertura.coverage.LockableProjectData;
 import se.de.hu_berlin.informatik.stardust.provider.cobertura.coverage.MyTouchCollector;
-import se.de.hu_berlin.informatik.utils.files.FileUtils;
+import se.de.hu_berlin.informatik.utils.miscellaneous.ClassPathParser;
 import se.de.hu_berlin.informatik.utils.miscellaneous.Log;
-import se.de.hu_berlin.informatik.utils.processors.AbstractProcessor;
-import se.de.hu_berlin.informatik.utils.processors.sockets.ProcessorSocket;
 import se.de.hu_berlin.informatik.utils.statistics.StatisticsCollector;
 
 /**
@@ -35,95 +37,57 @@ import se.de.hu_berlin.informatik.utils.statistics.StatisticsCollector;
  * 
  * @author Simon Heiden
  */
-public class CoberturaTestRunAndReportModule extends AbstractProcessor<TestWrapper, CoberturaReportWrapper> {
+public class CoberturaTestRunAndReportModule extends AbstractTestRunAndReportModule<ProjectData,CoberturaReportWrapper> {
 
-	final private String testOutput;
-	final private Arguments reportArguments;
-	final private Long timeout;
-
-	final private StatisticsCollector<StatisticsData> statisticsContainer;
+	final public static CoberturaReportWrapper ERROR_WRAPPER = new CoberturaReportWrapper(null, null, null, false);
 	
-	final private static LockableProjectData UNDEFINED_COVERAGE_DUMMY = new LockableProjectData();
-	final private static LockableProjectData UNFINISHED_EXECUTION_DUMMY = new LockableProjectData();
-	final private static LockableProjectData WRONG_COVERAGE_DUMMY = new LockableProjectData();
-	
-	final private File dataFile;
-	private ProjectData initialProjectData;
-
-	final private boolean fullSpectra;
-
-	final private TestRunModule testRunner;
-	final private CoberturaTestRunInNewJVMModule testRunnerNewJVM;
-	
+	final private Path dataFile;
 	private Map<Class<?>, Integer> registeredClasses;
-	final private boolean alwaysUseSeparateJVM;
-	
-	private int testCounter = 0;
-
-	public CoberturaTestRunAndReportModule(final Path dataFile, final String testOutput, final String srcDir,
-			String instrumentedClassPath, final String javaHome, boolean useSeparateJVMalways) {
-		this(dataFile, testOutput, srcDir, false, false, null, 1, instrumentedClassPath, javaHome, useSeparateJVMalways);
-	}
-
-	public CoberturaTestRunAndReportModule(final Path dataFile, final String testOutput, final String srcDir, 
-			final boolean fullSpectra, final boolean debugOutput, Long timeout, final int repeatCount,
-			String instrumentedClassPath, final String javaHome, boolean useSeparateJVMalways) {
-		this(dataFile, testOutput, srcDir, fullSpectra, debugOutput, timeout, repeatCount, 
-				instrumentedClassPath, javaHome, useSeparateJVMalways, null);
-	}
+	private Arguments reportArguments;
+	private ProjectData initialProjectData;
+	private String testOutput;
+	private ClassLoader cl;
+	private boolean debugOutput;
+	private String javaHome;
+	private Long timeout;
+	private int repeatCount;
+	private String instrumentedClassPath;
+	private boolean fullSpectra;
+	private File projectDir;
+	private String java7RunnerJar;
 
 	@SuppressWarnings("unchecked")
-	public CoberturaTestRunAndReportModule(final Path dataFile, final String testOutput, final String srcDir, 
+	public CoberturaTestRunAndReportModule(final Path dataFile, final String testOutput, final File projectDir, final String srcDir, 
 			final boolean fullSpectra, final boolean debugOutput, Long timeout, final int repeatCount,
-			String instrumentedClassPath, final String javaHome, boolean useSeparateJVMalways,
-			final StatisticsCollector<StatisticsData> statisticsContainer) {
-		super();
-		UNDEFINED_COVERAGE_DUMMY.lock();
-		UNFINISHED_EXECUTION_DUMMY.lock();
-		WRONG_COVERAGE_DUMMY.lock();
-		
-		this.statisticsContainer = statisticsContainer;
+			String instrumentedClassPath, final String javaHome, final String java7RunnerJar, boolean useSeparateJVMalways, 
+			boolean alwaysUseJava7, int maxErrors, String[] failingtests,
+			final StatisticsCollector<StatisticsData> statisticsContainer, ClassLoader cl) {
+		super(testOutput, debugOutput, timeout, repeatCount, useSeparateJVMalways, alwaysUseJava7, 
+				maxErrors, failingtests, statisticsContainer, cl);
 		this.testOutput = testOutput;
+		this.projectDir = projectDir;
+		this.fullSpectra = fullSpectra;
+		this.debugOutput = debugOutput;
+		this.timeout = timeout;
+		this.repeatCount = repeatCount;
+		this.instrumentedClassPath = instrumentedClassPath;
+		this.javaHome = javaHome;
+		this.java7RunnerJar = java7RunnerJar;
+		this.cl = cl;
 
-		this.dataFile = dataFile.toFile();
+		this.dataFile = dataFile;
 		String baseDir = null;
 		validateDataFile(this.dataFile.toString());
-		validateAndCreateDestinationDirectory(this.testOutput);
+		validateAndCreateDestinationDirectory(testOutput);
 
 		ArgumentsBuilder builder = new ArgumentsBuilder();
 		builder.setDataFile(this.dataFile.toString());
-		builder.setDestinationDirectory(this.testOutput);
+		builder.setDestinationDirectory(testOutput);
 		builder.addSources(srcDir, baseDir == null);
 
 		reportArguments = builder.build();
-
-		this.fullSpectra = fullSpectra;
-
-		//in the original data file, all (executable) lines are contained, even though they are not executed at all;
-		//so if we want to have the full spectra, we have to make a backup and load it again for each run test
-		if (this.fullSpectra) {
-			initialProjectData = CoverageDataFileHandler.loadCoverageData(this.dataFile);
-		} else {
-			initialProjectData = new ProjectData();
-		}
-
-		this.timeout = timeout;
 		
-		this.alwaysUseSeparateJVM = instrumentedClassPath != null && useSeparateJVMalways;
-
-		if (this.alwaysUseSeparateJVM) {
-			this.testRunner = null;
-		} else {
-			this.testRunner = new TestRunModule(this.testOutput, debugOutput, this.timeout, repeatCount, null);
-		}
-		
-		this.testRunnerNewJVM = new CoberturaTestRunInNewJVMModule(this.testOutput, debugOutput, this.timeout, repeatCount, 
-				instrumentedClassPath, this.dataFile.toPath(), javaHome);
-		
-		//initialize/reset the project data
-		ProjectData.saveGlobalProjectData();
-		//turn off auto saving (removes the shutdown hook inside of Cobertura)
-		ProjectData.turnOffAutoSave();
+		initialProjectData = CoverageDataFileHandler.loadCoverageData(dataFile.toFile());
 
 		//try to get access to necessary fields from Cobertura with reflection...
 		try {
@@ -132,21 +96,32 @@ public class CoberturaTestRunAndReportModule extends AbstractProcessor<TestWrapp
 			registeredClasses = (Map<Class<?>, Integer>) registeredClassesField.get(null);
 		} catch (Exception e) {
 			//if reflection doesn't work, get the classes from the data file
-			Collection<ClassData> classes;
-			if (this.fullSpectra) {
-				classes = initialProjectData.getClasses();
-			} else {
-				classes = CoverageDataFileHandler.loadCoverageData(dataFile.toFile()).getClasses();
-			}
+			Collection<ClassData> classes = initialProjectData.getClasses();
 			registeredClasses = new HashMap<>();
 			for (ClassData classData : classes) {
 				try {
-					registeredClasses.put(Class.forName(classData.getName()), 0);
+					if (cl == null) {
+						registeredClasses.put(Class.forName(classData.getName()), 0);
+					} else {
+						registeredClasses.put(Class.forName(classData.getName(), true, cl), 0);
+					}
 				} catch (ClassNotFoundException e1) {
 					Log.err(this, "Class '%s' not found for registration.", classData.getName());
 				}
 			}
 		}
+
+		//in the original data file, all (executable) lines are contained, even though they are not executed at all;
+		//so if we want to not have the full spectra, we have to reset this data here
+		if (!fullSpectra) {
+			initialProjectData = new LockableProjectData();
+			MyTouchCollector.resetTouchesOnProjectData2(registeredClasses, initialProjectData);
+		}
+
+//		//initialize/reset the project data
+//		ProjectData.saveGlobalProjectData();
+		//turn off auto saving (removes the shutdown hook inside of Cobertura)
+		ProjectData.turnOffAutoSave();
 	}
 
 	private void validateDataFile(String value) {
@@ -170,142 +145,9 @@ public class CoberturaTestRunAndReportModule extends AbstractProcessor<TestWrapp
 		destinationDir.mkdirs();
 	}
 
-	/* (non-Javadoc)
-	 * @see se.de.hu_berlin.informatik.utils.tm.ITransmitter#processItem(java.lang.Object)
-	 */
 	@Override
-	public CoberturaReportWrapper processItem(final TestWrapper testWrapper, ProcessorSocket<TestWrapper, CoberturaReportWrapper> socket) {
-		socket.allowOnlyForcedTracks();
-		socket.forceTrack(testWrapper.toString());
-		++testCounter;
-//		Log.out(this, "Now processing: '%s'.", testWrapper);
-		
-		TestStatistics testStatistics = new TestStatistics();
-
-		ProjectData projectData = UNDEFINED_COVERAGE_DUMMY;
-		
-		if (alwaysUseSeparateJVM) {
-			projectData = runTestInNewJVM(testWrapper, testStatistics);
-		} else {
-			projectData = runTestLocally(testWrapper, testStatistics);
-		}
-
-//		if (isNormalData(projectData) || projectData == WRONG_COVERAGE_DUMMY) {
-//			if (!testStatistics.wasSuccessful()) {
-//				testStatistics.addStatisticsElement(StatisticsData.FAILED_TEST_COVERAGE, 
-//						"Project data for failed test: " + testWrapper + System.lineSeparator() 
-//						+ LockableProjectData.projectDataToString(projectData, true));
-//			}
-//		}
-
-		if (testStatistics.getErrorMsg() != null) {
-			Log.err(this, testStatistics.getErrorMsg());
-		}
-		
-		if (statisticsContainer != null) {
-			statisticsContainer.addStatistics(testStatistics);
-		}
-
-		if (isNormalData(projectData)) {
-			return generateReport(testWrapper, testStatistics, projectData);
-		} else {
-			return null;
-		}
-	}
-	
-	private static boolean isNormalData(ProjectData projectData) {
-		return projectData != null && 
-				projectData != WRONG_COVERAGE_DUMMY && 
-				projectData != UNDEFINED_COVERAGE_DUMMY && 
-				projectData != UNFINISHED_EXECUTION_DUMMY;
-	}
-	
-	private ProjectData runTestLocally(final TestWrapper testWrapper, 
-			final TestStatistics testStatistics) {
-		//sadly, we have to check if the coverage data has properly been reset...
-		boolean isResetted = false;
-		int maxTryCount = 3;
-		int tryCount = 0;
-		LockableProjectData projectData2 = UNDEFINED_COVERAGE_DUMMY;
-		while (!isResetted && tryCount < maxTryCount) {
-			++tryCount;
-			projectData2 = new LockableProjectData();
-			MyTouchCollector.resetTouchesOnProjectData2(registeredClasses, projectData2);
-//			LockableProjectData.resetLines(projectData2);
-			if (!LockableProjectData.containsCoveredLines(projectData2)) {
-				isResetted = true;
-			}
-		}
-		
-		LockableProjectData projectData = UNDEFINED_COVERAGE_DUMMY;
-
-		//(try to) run the test and get the statistics
-		testStatistics.mergeWith(testRunner.submit(testWrapper).getResult());
-
-		//see if the test was executed and finished execution normally
-		if (testStatistics.couldBeFinished()) {
-			// wait for some milliseconds
-			try {
-				Thread.sleep(50);
-			} catch (InterruptedException e) {
-				// do nothing
-			}
-			projectData = new LockableProjectData();
-
-			MyTouchCollector.applyTouchesOnProjectData2(registeredClasses, projectData);
-
-			((LockableProjectData)projectData).lock();
-
-//			Log.out(this, "Project data for: " + testWrapper + System.lineSeparator() + projectDataToString(projectData, false));
-			
-			if (!isResetted) {
-				testStatistics.addStatisticsElement(StatisticsData.ERROR_MSG, 
-						"Coverage data not empty before running test " + testCounter + ".");
-//				if (!projectData.subtract(projectData2)) {
-//					testStatistics.addStatisticsElement(StatisticsData.WRONG_COVERAGE, 1);
-//					testStatistics.addStatisticsElement(StatisticsData.ERROR_MSG, 
-//							testWrapper + ": Wrong coverage data on test no. " + testCounter + ".");
-//				}
-			}
-
-		} else {
-			projectData = null;
-		}
-		
-		return projectData;
-	}
-	
-	private ProjectData runTestInNewJVM(TestWrapper testWrapper, TestStatistics testStatistics) {
-		ProjectData projectData;
-		FileUtils.delete(dataFile);
-		//(try to) run the test in new JVM and get the statistics
-		testStatistics.mergeWith(testRunnerNewJVM.submit(testWrapper).getResult());
-		testStatistics.addStatisticsElement(StatisticsData.SEPARATE_JVM, 1);
-		
-		//see if the test was executed and finished execution normally
-		if (testStatistics.couldBeFinished()) {
-			// wait for some milliseconds
-			try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				// do nothing
-			}
-			if (dataFile.exists()) {
-				projectData = CoverageDataFileHandler.loadCoverageData(dataFile);
-			} else {
-				projectData = UNDEFINED_COVERAGE_DUMMY;
-				Log.err(this, testWrapper + ": Data file does not exist after running test no. " + testCounter + ".");
-				testStatistics.addStatisticsElement(StatisticsData.ERROR_MSG, 
-						testWrapper + ": Data file does not exist after running test no. " + testCounter + ".");
-			}
-		} else {
-			projectData = UNFINISHED_EXECUTION_DUMMY;
-		}
-		return projectData;
-	}
-	
-	private CoberturaReportWrapper generateReport(final TestWrapper testWrapper, 
-			TestStatistics testStatistics, ProjectData projectData) {
+	public CoberturaReportWrapper generateReport(TestWrapper testWrapper, TestStatistics testStatistics,
+			ProjectData data) {
 		//generate the report
 		ComplexityCalculator complexityCalculator = null;
 //			= new ComplexityCalculator(reportArguments.getSources());
@@ -313,7 +155,7 @@ public class CoberturaTestRunAndReportModule extends AbstractProcessor<TestWrapp
 //			complexityCalculator.setCalculateMethodComplexity(
 //					reportArguments.isCalculateMethodComplexity());
 
-		NativeReport report = new NativeReport(projectData, reportArguments
+		NativeReport report = new NativeReport(data, reportArguments
 				.getDestinationDirectory(), reportArguments.getSources(),
 				complexityCalculator, reportArguments.getEncoding());
 
@@ -322,11 +164,38 @@ public class CoberturaTestRunAndReportModule extends AbstractProcessor<TestWrapp
 	}
 
 	@Override
-	public boolean finalShutdown() {
-		if (testRunner != null) {
-			testRunner.finalShutdown();
+	public CoberturaReportWrapper getErrorReport() {
+		return ERROR_WRAPPER;
+	}
+
+	@Override
+	public AbstractTestRunLocallyModule<ProjectData> newTestRunLocallyModule() {
+		return new CoberturaTestRunLocallyModule(dataFile, testOutput, fullSpectra, 
+				debugOutput, timeout, repeatCount, cl, registeredClasses);
+	}
+	
+	@Override
+	public AbstractTestRunInNewJVMModule<ProjectData> newTestRunInNewJVMModule() {
+		return new CoberturaTestRunInNewJVMModule(testOutput, debugOutput, timeout, 
+				repeatCount, instrumentedClassPath + File.pathSeparator + new ClassPathParser().parseSystemClasspath().getClasspath(), 
+				dataFile, javaHome, projectDir);
+	}
+
+	@Override
+	public AbstractTestRunInNewJVMModuleWithJava7Runner<ProjectData> newTestRunInNewJVMModuleWithJava7Runner() {
+		//remove as much irrelevant classes as possible from class path (does not work this way...) TODO
+//		ClassPathParser systemClasspath = new ClassPathParser(true).parseSystemClasspath();
+//		systemClasspath.removeElementsOtherThan("java7-test-runner", "ant-", "junit-4.12");
+		String testClassPath = instrumentedClassPath + File.pathSeparator;
+		if (java7RunnerJar == null) {
+			testClassPath += new ClassPathParser().parseSystemClasspath().getClasspath();
+		} else {
+			testClassPath += java7RunnerJar;
 		}
-		return super.finalShutdown();
+		return new CoberturaTestRunInNewJVMModuleWithJava7Runner(testOutput, 
+				debugOutput, timeout, repeatCount, testClassPath,
+				// + File.pathSeparator + systemClasspath.getClasspath(), 
+				dataFile, javaHome, projectDir);
 	}
 
 }

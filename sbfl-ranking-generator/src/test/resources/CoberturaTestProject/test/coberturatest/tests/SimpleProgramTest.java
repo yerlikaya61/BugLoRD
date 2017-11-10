@@ -98,4 +98,64 @@ public class SimpleProgramTest {
 		Assert.assertEquals(new SimpleProgram().new InnerClass().divide(6, 3), 2);
 	}
 	
+	public static class InnerTestClass {
+		
+		/**
+		 * Test method for {@link coberturatest.SimpleProgram#add(int, int)}.
+		 */
+		@Test
+		public void testAddInner() throws Exception {
+			Assert.assertEquals(SimpleProgram.add(2, 3), 5);
+			Assert.assertEquals(SimpleProgram.add(2, 4), 6);
+		}
+		
+	}
+	
+	private static class InnerPrivateTestClass {
+		
+		/**
+		 * Test method for {@link coberturatest.SimpleProgram#add(int, int)}.
+		 */
+		@Test
+		public void testAddInnerPrivate() throws Exception {
+			Assert.assertEquals(SimpleProgram.add(2, 3), 5);
+			Assert.assertEquals(SimpleProgram.add(2, 4), 6);
+		}
+		
+	}
+	
+	private static class InnerPrivateTestClassWithNonPublicConstructor {
+		
+		InnerPrivateTestClassWithNonPublicConstructor() {
+			//exists in Closure Test case...
+		}
+		
+		/**
+		 * Test method for {@link coberturatest.SimpleProgram#add(int, int)}.
+		 */
+		@Test
+		public void testAddInnerPrivateNonPublic() throws Exception {
+			Assert.assertEquals(SimpleProgram.add(2, 3), 5);
+			Assert.assertEquals(SimpleProgram.add(2, 4), 6);
+		}
+		
+	}
+	
+	public static class InnerPublicTestClassWithNonPublicConstructor {
+		
+		InnerPublicTestClassWithNonPublicConstructor() {
+			//does that work?
+		}
+		
+		/**
+		 * Test method for {@link coberturatest.SimpleProgram#add(int, int)}.
+		 */
+		@Test
+		public void testAddInnerNonPublic() throws Exception {
+			Assert.assertEquals(SimpleProgram.add(2, 3), 5);
+			Assert.assertEquals(SimpleProgram.add(2, 4), 6);
+		}
+		
+	}
+	
 }

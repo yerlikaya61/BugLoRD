@@ -28,6 +28,8 @@ public abstract class AbstractEntity implements Entity {
 			throw new UnsupportedOperationException(); }
 		@Override public String getUniqueIdentifier() { return "dummy-entity"; }
 		@Override public boolean initialize(boolean executionMode) { return false; }
+		@Override public List<String> getFailingTests(boolean executionMode) throws UnsupportedOperationException {
+			throw new UnsupportedOperationException(); }
 	};
 	
 	
@@ -105,7 +107,6 @@ public abstract class AbstractEntity implements Entity {
 	}
 
 	abstract public List<Path> computeTestClasses(boolean executionMode) throws UnsupportedOperationException;
-
 
 	@Override
 	public DirectoryProvider getDirectoryProvider() {

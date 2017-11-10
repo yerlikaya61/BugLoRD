@@ -24,7 +24,7 @@ import se.de.hu_berlin.informatik.stardust.spectra.ISpectra;
 import se.de.hu_berlin.informatik.stardust.spectra.manipulation.FilterSpectraModule;
 import se.de.hu_berlin.informatik.stardust.util.SpectraFileUtils;
 import se.de.hu_berlin.informatik.utils.files.csv.CSVUtils;
-import se.de.hu_berlin.informatik.utils.files.processors.StringListToFileWriter;
+import se.de.hu_berlin.informatik.utils.files.processors.ListToFileWriter;
 import se.de.hu_berlin.informatik.utils.miscellaneous.Log;
 import se.de.hu_berlin.informatik.utils.miscellaneous.Misc;
 import se.de.hu_berlin.informatik.utils.optionparser.OptionParser;
@@ -148,7 +148,7 @@ public class GenerateStatistics {
 						return Misc.sortByKeyToValueList(map);
 					}
 				},
-				new StringListToFileWriter<List<String>>(output, true)
+				new ListToFileWriter<List<String>>(output, true)
 				);
 
 		//		,
@@ -183,7 +183,7 @@ public class GenerateStatistics {
 	}
 	
 	
-	private static class GenStatisticsProcessor extends AbstractProcessor<BuggyFixedEntity, String[]> {
+	private static class GenStatisticsProcessor extends AbstractProcessor<BuggyFixedEntity<?>, String[]> {
 
 		private final String subDirName;
 
@@ -192,7 +192,7 @@ public class GenerateStatistics {
 		}
 
 		@Override
-		public String[] processItem(BuggyFixedEntity input, ProcessorSocket<BuggyFixedEntity, String[]> socket) {
+		public String[] processItem(BuggyFixedEntity<?> input, ProcessorSocket<BuggyFixedEntity<?>, String[]> socket) {
 			Log.out(GenerateStatistics.class, "Processing %s.", input);
 			Entity bug = input.getBuggyVersion();
 			

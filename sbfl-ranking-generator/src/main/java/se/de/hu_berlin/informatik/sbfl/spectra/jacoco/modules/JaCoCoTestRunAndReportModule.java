@@ -5,30 +5,31 @@ package se.de.hu_berlin.informatik.sbfl.spectra.jacoco.modules;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.net.InetAddress;
-import java.net.Socket;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+
+import org.jacoco.agent.AgentJar;
 import org.jacoco.core.analysis.Analyzer;
 import org.jacoco.core.analysis.CoverageBuilder;
 import org.jacoco.core.analysis.IBundleCoverage;
 import org.jacoco.core.analysis.IClassCoverage;
 import org.jacoco.core.data.ExecutionDataStore;
-import org.jacoco.core.runtime.AgentOptions;
-import org.jacoco.core.runtime.RemoteControlReader;
-import org.jacoco.core.runtime.RemoteControlWriter;
-import org.jacoco.core.tools.ExecFileLoader;
-
-import se.de.hu_berlin.informatik.sbfl.StatisticsData;
-import se.de.hu_berlin.informatik.sbfl.TestStatistics;
-import se.de.hu_berlin.informatik.sbfl.TestWrapper;
-import se.de.hu_berlin.informatik.sbfl.spectra.modules.TestRunModule;
+import se.de.hu_berlin.informatik.java7.testrunner.TestWrapper;
+import se.de.hu_berlin.informatik.junittestutils.data.StatisticsData;
+import se.de.hu_berlin.informatik.junittestutils.data.TestStatistics;
+import se.de.hu_berlin.informatik.sbfl.spectra.jacoco.JaCoCoToSpectra;
+import se.de.hu_berlin.informatik.sbfl.spectra.jacoco.SerializableExecFileLoader;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunAndReportModule;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunInNewJVMModule;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunInNewJVMModuleWithJava7Runner;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunLocallyModule;
 import se.de.hu_berlin.informatik.stardust.provider.jacoco.JaCoCoReportWrapper;
+import se.de.hu_berlin.informatik.utils.miscellaneous.ClassPathParser;
 import se.de.hu_berlin.informatik.utils.miscellaneous.Log;
-import se.de.hu_berlin.informatik.utils.processors.AbstractProcessor;
-import se.de.hu_berlin.informatik.utils.processors.sockets.ProcessorSocket;
+import se.de.hu_berlin.informatik.utils.miscellaneous.Misc;
+import se.de.hu_berlin.informatik.utils.miscellaneous.SimpleServerFramework;
 import se.de.hu_berlin.informatik.utils.statistics.StatisticsCollector;
 
 /**
@@ -36,260 +37,48 @@ import se.de.hu_berlin.informatik.utils.statistics.StatisticsCollector;
  * 
  * @author Simon Heiden
  */
-public class JaCoCoTestRunAndReportModule extends AbstractProcessor<TestWrapper, JaCoCoReportWrapper> {
+public class JaCoCoTestRunAndReportModule extends AbstractTestRunAndReportModule<SerializableExecFileLoader, JaCoCoReportWrapper> {
 
-	final private String testOutput;
-	// final private Arguments reportArguments;
-	final private Long timeout;
-
-	final private StatisticsCollector<StatisticsData> statisticsContainer;
-
-	final private static ExecFileLoader UNDEFINED_COVERAGE_DUMMY = new ExecFileLoader();
-	final private static ExecFileLoader UNFINISHED_EXECUTION_DUMMY = new ExecFileLoader();
-	final private static ExecFileLoader WRONG_COVERAGE_DUMMY = new ExecFileLoader();
-
-	final private TestRunModule testRunner;
-//	final private JaCoCoTestRunInNewJVMModule testRunnerNewJVM;
-
-//	final private boolean alwaysUseSeparateJVM;
-
-	private int testCounter = 0;
+	final public static JaCoCoReportWrapper ERROR_WRAPPER = new JaCoCoReportWrapper(null, null, false);
 
 	// location of Java class files
-	List<File> classfiles = new ArrayList<File>();
+	private List<File> classfiles = new ArrayList<File>();
 
-	// location of the source files
-//	List<File> sourcefiles = new ArrayList<File>();
-	
-	final private int port;
+	private Path dataFile;
+	private String testOutput;
+	private File projectDir;
+	private int port;
+	private boolean debugOutput;
+	private Long timeout;
+	private int repeatCount;
+	private String instrumentedClassPath;
+	private String javaHome;
+	private ClassLoader cl;
+	private String java7RunnerJar;
 
-	public JaCoCoTestRunAndReportModule(final String testOutput, final String srcDir, String[] originalClasses, int port,
-			String instrumentedClassPath, final String javaHome, boolean useSeparateJVMalways) {
-		this(testOutput, srcDir, originalClasses, port, false, null, 1, instrumentedClassPath, javaHome,
-				useSeparateJVMalways);
-	}
-
-	public JaCoCoTestRunAndReportModule(final String testOutput, final String srcDir, String[] originalClasses, int port,
+	public JaCoCoTestRunAndReportModule(final Path dataFile, final String testOutput, File projectDir, final String srcDir, String[] originalClasses, int port,
 			final boolean debugOutput, Long timeout, final int repeatCount, String instrumentedClassPath,
-			final String javaHome, boolean useSeparateJVMalways) {
-		this(testOutput, srcDir, originalClasses, port, debugOutput, timeout, repeatCount, instrumentedClassPath, javaHome,
-				useSeparateJVMalways, null, null);
-	}
-
-	public JaCoCoTestRunAndReportModule(final String testOutput, final String srcDir, String[] originalClasses, int port,
-			final boolean debugOutput, Long timeout, final int repeatCount, String instrumentedClassPath,
-			final String javaHome, boolean useSeparateJVMalways,
+			final String javaHome, final String java7RunnerJar, boolean useSeparateJVMalways, boolean alwaysUseJava7, int maxErrors, String[] failingtests,
 			final StatisticsCollector<StatisticsData> statisticsContainer, ClassLoader cl) {
-		super();
-
-		this.statisticsContainer = statisticsContainer;
+		super(testOutput, debugOutput, timeout, repeatCount, useSeparateJVMalways, alwaysUseJava7, 
+				maxErrors, failingtests, statisticsContainer, cl);
+		this.dataFile = dataFile;
 		this.testOutput = testOutput;
-
+		this.projectDir = projectDir;
+		this.port = port;
+		this.debugOutput = debugOutput;
+		this.timeout = timeout;
+		this.repeatCount = repeatCount;
+		this.instrumentedClassPath = instrumentedClassPath;
+		this.javaHome = javaHome;
+		this.java7RunnerJar = java7RunnerJar;
+		this.cl = cl;
+		
 //		this.sourcefiles.add(new File(srcDir));
 		for (String classDirFile : originalClasses) {
 			this.classfiles.add(new File(classDirFile));
 		}
 
-		this.timeout = timeout;
-		this.port = port;
-
-//		this.alwaysUseSeparateJVM = instrumentedClassPath != null && useSeparateJVMalways;
-
-//		if (this.alwaysUseSeparateJVM) {
-//			this.testRunner = null;
-//		} else {
-			this.testRunner = new TestRunModule(this.testOutput, debugOutput, this.timeout, repeatCount, cl);
-//		}
-
-//		this.testRunnerNewJVM = new JaCoCoTestRunInNewJVMModule(this.testOutput, debugOutput, this.timeout, repeatCount,
-//				instrumentedClassPath, javaHome);
-
-	}
-
-	/*
-	 * (non-Javadoc)
-	 * @see
-	 * se.de.hu_berlin.informatik.utils.tm.ITransmitter#processItem(java.lang.
-	 * Object)
-	 */
-	@Override
-	public JaCoCoReportWrapper processItem(final TestWrapper testWrapper,
-			ProcessorSocket<TestWrapper, JaCoCoReportWrapper> socket) {
-		socket.allowOnlyForcedTracks();
-		socket.forceTrack(testWrapper.toString());
-		++testCounter;
-		// Log.out(this, "Now processing: '%s'.", testWrapper);
-
-		TestStatistics testStatistics = new TestStatistics();
-		ExecFileLoader projectData = UNDEFINED_COVERAGE_DUMMY;
-
-//		if (alwaysUseSeparateJVM) {
-//			projectData = runTestInNewJVM(testWrapper, testStatistics);
-//			// Log.out(this, testStatistics.toString());
-//		} else {
-			projectData = runTestLocally(testWrapper, testStatistics);
-//		}
-
-		if (testStatistics.getErrorMsg() != null) {
-			Log.err(this, testStatistics.getErrorMsg());
-		}
-
-		if (statisticsContainer != null) {
-			statisticsContainer.addStatistics(testStatistics);
-		}
-
-		if (isNormalData(projectData)) {			
-			return generateReport(testWrapper, testStatistics, projectData);
-		} else {
-			return null;
-		}
-	}
-
-	private static boolean isNormalData(ExecFileLoader projectData) {
-		return projectData != null && projectData != WRONG_COVERAGE_DUMMY && projectData != UNDEFINED_COVERAGE_DUMMY
-				&& projectData != UNFINISHED_EXECUTION_DUMMY;
-	}
-
-	// private ExecFileLoader runTestLocallyOrInJVM(final TestWrapper
-	// testWrapper,
-	// TestStatistics testStatistics, ExecFileLoader lastProjectData) {
-	// ExecFileLoader projectData;
-	// if (lastProjectData == WRONG_COVERAGE_DUMMY) {
-	// projectData = runTestInNewJVM(testWrapper, testStatistics);
-	// } else {
-	// projectData = runTestLocally(testWrapper, testStatistics);
-	// }
-	//
-	//// //see if the test was executed and finished execution normally
-	//// if (isNormalData(lastProjectData) && isNormalData(projectData)) {
-	//// boolean isEqual = LockableProjectData.containsSameCoverage(projectData,
-	// lastProjectData);
-	//// if (!isEqual) {
-	//// testStatistics.addStatisticsElement(StatisticsData.DIFFERENT_COVERAGE,
-	// 1);
-	//// testStatistics.addStatisticsElement(StatisticsData.ERROR_MSG,
-	//// testWrapper + ": Repeated test execution generated different
-	// coverage.");
-	//// projectData.merge(lastProjectData);
-	//// }
-	//// }
-	//
-	// return projectData;
-	// }
-
-	private ExecFileLoader runTestLocally(final TestWrapper testWrapper, final TestStatistics testStatistics) {
-		// (try to) run the test and get the statistics
-		testStatistics.mergeWith(testRunner.submit(testWrapper).getResult());
-
-		ExecFileLoader loader = UNDEFINED_COVERAGE_DUMMY;
-		// see if the test was executed and finished execution normally
-		if (testStatistics.couldBeFinished()) {
-			// wait for some milliseconds
-			try {
-				Thread.sleep(50);
-			} catch (InterruptedException e) {
-				// do nothing
-			}
-			// get execution data
-			try {
-				loader = dump(port);
-			} catch (IOException e) {
-				loader = UNDEFINED_COVERAGE_DUMMY;
-				Log.err(
-						this, e,
-						testWrapper + ": Could not request execution data after running test no. " + testCounter + ".");
-				testStatistics.addStatisticsElement(
-						StatisticsData.ERROR_MSG,
-						testWrapper + ": Could not request execution data after running test no. " + testCounter + ".");
-			}
-		} else {
-			loader = UNFINISHED_EXECUTION_DUMMY;
-		}
-
-		return loader;
-	}
-
-	private ExecFileLoader dump(final int port) throws IOException {
-		final ExecFileLoader loader = new ExecFileLoader();
-		final Socket socket = tryConnect(port);
-		try {
-			final RemoteControlWriter remoteWriter = new RemoteControlWriter(socket.getOutputStream());
-			final RemoteControlReader remoteReader = new RemoteControlReader(socket.getInputStream());
-			remoteReader.setSessionInfoVisitor(loader.getSessionInfoStore());
-			remoteReader.setExecutionDataVisitor(loader.getExecutionDataStore());
-
-			remoteWriter.visitDumpCommand(true, true);
-			remoteReader.read();
-
-		} finally {
-			socket.close();
-		}
-		return loader;
-	}
-
-	private Socket tryConnect(final int port) throws IOException {
-		int count = 0;
-		InetAddress inetAddress = InetAddress.getByName(AgentOptions.DEFAULT_ADDRESS);
-		while (true) {
-			try {
-				// Log.out(this, "Connecting to %s:%s.", address,
-				// Integer.valueOf(port));
-				return new Socket(inetAddress, port);
-			} catch (final IOException e) {
-				if (++count > 2) {
-					throw e;
-				}
-				Log.err(this, "%s.", e.getMessage());
-				try {
-					Thread.sleep(1000);
-				} catch (final InterruptedException x) {
-					throw new InterruptedIOException();
-				}
-			}
-		}
-	}
-
-//	private ExecFileLoader runTestInNewJVM(TestWrapper testWrapper, TestStatistics testStatistics) {
-//		// (try to) run the test in new JVM and get the statistics
-//		testStatistics.mergeWith(testRunnerNewJVM.submit(testWrapper).getResult());
-//		testStatistics.addStatisticsElement(StatisticsData.SEPARATE_JVM, 1);
-//
-//		ExecFileLoader loader = UNDEFINED_COVERAGE_DUMMY;
-//		// see if the test was executed and finished execution normally
-//		if (testStatistics.couldBeFinished()) {
-//			try {
-//				loader = dump(InetAddress.getByName(AgentOptions.DEFAULT_ADDRESS), AgentOptions.DEFAULT_PORT);
-//			} catch (IOException e) {
-//				loader = UNDEFINED_COVERAGE_DUMMY;
-//				Log.err(
-//						this,
-//						testWrapper + ": Could not request execution data after running test no. " + testCounter + ".");
-//				testStatistics.addStatisticsElement(
-//						StatisticsData.ERROR_MSG,
-//						testWrapper + ": Could not request execution data after running test no. " + testCounter + ".");
-//			}
-//		} else {
-//			loader = UNFINISHED_EXECUTION_DUMMY;
-//		}
-//		return loader;
-//	}
-
-	private JaCoCoReportWrapper generateReport(final TestWrapper testWrapper, TestStatistics testStatistics,
-			ExecFileLoader execFileLoader) {
-		// generate the report
-		IBundleCoverage bundle = null;
-		try {
-			bundle = analyze(execFileLoader.getExecutionDataStore());
-		} catch (IOException e) {
-			Log.abort(this, e, "Analysis failed.");
-		}
-		// try {
-		// writeReports(bundle, execFileLoader);
-		// } catch (IOException e) {
-		// Log.abort(this, e, "Writing reports failed.");
-		// }
-
-		return new JaCoCoReportWrapper(bundle, testWrapper.toString(), testStatistics.wasSuccessful());
 	}
 
 	private IBundleCoverage analyze(final ExecutionDataStore data) throws IOException {
@@ -352,12 +141,95 @@ public class JaCoCoTestRunAndReportModule extends AbstractProcessor<TestWrapper,
 //		return multi;
 //	}
 
+
 	@Override
-	public boolean finalShutdown() {
-		if (testRunner != null) {
-			testRunner.finalShutdown();
+	public JaCoCoReportWrapper generateReport(TestWrapper testWrapper, TestStatistics testStatistics,
+			SerializableExecFileLoader data) {
+		if (data.getExecFileLoader() != null) {
+			// generate the report
+			IBundleCoverage bundle = null;
+			try {
+				bundle = analyze(data.getExecFileLoader().getExecutionDataStore());
+			} catch (IOException e) {
+				Log.abort(this, e, "Analysis failed.");
+			}
+			// try {
+			// writeReports(bundle, execFileLoader);
+			// } catch (IOException e) {
+			// Log.abort(this, e, "Writing reports failed.");
+			// }
+
+			return new JaCoCoReportWrapper(bundle, testWrapper.toString(), testStatistics.wasSuccessful());
+		} else {
+			return null;
 		}
-		return super.finalShutdown();
 	}
+
+	@Override
+	public JaCoCoReportWrapper getErrorReport() {
+		return ERROR_WRAPPER;
+	}
+
+	@Override
+	public AbstractTestRunLocallyModule<SerializableExecFileLoader> newTestRunLocallyModule() {
+		return new JaCoCoTestRunLocallyModule(testOutput, 
+				debugOutput, timeout, repeatCount, cl, port);
+	}
+	
+	@Override
+	public AbstractTestRunInNewJVMModule<SerializableExecFileLoader> newTestRunInNewJVMModule() {
+		return new JaCoCoTestRunInNewJVMModule(testOutput, debugOutput, timeout, repeatCount,
+				instrumentedClassPath + File.pathSeparator + new ClassPathParser().parseSystemClasspath().getClasspath(), 
+				javaHome, projectDir, port+1);
+	}
+
+	@Override
+	public AbstractTestRunInNewJVMModuleWithJava7Runner<SerializableExecFileLoader> newTestRunInNewJVMModuleWithJava7Runner() {
+		int freePort = SimpleServerFramework.getFreePort(port+2);
+
+		String testClassPath = instrumentedClassPath + File.pathSeparator;
+		
+		String[] properties;
+		if (JaCoCoToSpectra.OFFLINE_INSTRUMENTATION) {
+			properties = Misc.createArrayFromItems(
+					"-Djacoco-agent.dumponexit=true", 
+					"-Djacoco-agent.output=file",
+					"-Djacoco-agent.destfile=" + dataFile.toAbsolutePath().toString(),
+					"-Djacoco-agent.excludes=*",
+					"-Djacoco-agent.port=" + freePort);
+		} else {
+			File jacocoAgentJar = null; 
+			try {
+				jacocoAgentJar = AgentJar.extractToTempLocation();
+			} catch (IOException e) {
+				Log.abort(JaCoCoToSpectra.class, e, "Could not create JaCoCo agent jar file.");
+			}
+			
+			testClassPath += jacocoAgentJar.getAbsolutePath() + File.pathSeparator;
+
+			properties = Misc.createArrayFromItems(
+					"-javaagent:" + jacocoAgentJar.getAbsolutePath() 
+					+ "=dumponexit=true,"
+					+ "output=file,"
+					+ "destfile=" + dataFile.toAbsolutePath().toString() + ","
+					+ "excludes=se.de.hu_berlin.informatik.*:org.junit.*,"
+					+ "port=" + freePort);
+		}
+		
+		//remove as much irrelevant classes as possible from class path TODO
+//		ClassPathParser systemClasspath = new ClassPathParser().parseSystemClasspath();
+//		systemClasspath.removeElementsOtherThan("java7-test-runner", "ant-", "junit-4.12");
+		if (java7RunnerJar == null) {
+			testClassPath += new ClassPathParser().parseSystemClasspath().getClasspath();
+		} else {
+			testClassPath += java7RunnerJar;
+		}
+		return new JaCoCoTestRunInNewJVMModuleWithJava7Runner(testOutput, 
+				debugOutput, timeout, repeatCount, testClassPath,
+				// + File.pathSeparator + systemClasspath.getClasspath(), 
+				dataFile, javaHome, projectDir, (String[])properties);
+	}
+
+
 
 }

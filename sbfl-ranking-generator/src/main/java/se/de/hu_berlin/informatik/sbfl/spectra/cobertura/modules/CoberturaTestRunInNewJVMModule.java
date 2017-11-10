@@ -3,22 +3,22 @@
  */
 package se.de.hu_berlin.informatik.sbfl.spectra.cobertura.modules;
 
+import java.io.File;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.apache.commons.cli.Option;
-
-import se.de.hu_berlin.informatik.sbfl.StatisticsData;
-import se.de.hu_berlin.informatik.sbfl.TestStatistics;
-import se.de.hu_berlin.informatik.sbfl.TestWrapper;
-import se.de.hu_berlin.informatik.sbfl.spectra.modules.TestRunModule;
+import net.sourceforge.cobertura.coveragedata.ProjectData;
+import net.sourceforge.cobertura.coveragedata.TouchCollector;
+import se.de.hu_berlin.informatik.java7.testrunner.TestWrapper;
+import se.de.hu_berlin.informatik.junittestutils.data.TestStatistics;
+import se.de.hu_berlin.informatik.junittestutils.testrunner.running.ExtendedTestRunModule;
+import se.de.hu_berlin.informatik.sbfl.spectra.jacoco.modules.JaCoCoTestRunInNewJVMModule.TestRunner.CmdOptions;
+import se.de.hu_berlin.informatik.sbfl.spectra.modules.AbstractTestRunInNewJVMModuleWithServer;
 import se.de.hu_berlin.informatik.utils.miscellaneous.Log;
+import se.de.hu_berlin.informatik.utils.miscellaneous.SimpleServerFramework;
 import se.de.hu_berlin.informatik.utils.optionparser.OptionParser;
 import se.de.hu_berlin.informatik.utils.optionparser.OptionWrapper;
 import se.de.hu_berlin.informatik.utils.optionparser.OptionWrapperInterface;
-import se.de.hu_berlin.informatik.utils.processors.AbstractProcessor;
 import se.de.hu_berlin.informatik.utils.processors.basics.ExecuteMainClassInNewJVM;
-import se.de.hu_berlin.informatik.utils.processors.sockets.ProcessorSocket;
-import se.de.hu_berlin.informatik.utils.statistics.Statistics;
 
 /**
  * Runs a single test inside a new JVM and generates statistics. A timeout may be set
@@ -30,38 +30,28 @@ import se.de.hu_berlin.informatik.utils.statistics.Statistics;
  * 
  * @author Simon Heiden
  */
-public class CoberturaTestRunInNewJVMModule extends AbstractProcessor<TestWrapper, TestStatistics> {
+public class CoberturaTestRunInNewJVMModule extends AbstractTestRunInNewJVMModuleWithServer<ProjectData> {
 
 	final private ExecuteMainClassInNewJVM executeModule;
-
-	final private Path resultOutputFile;
-	final private String resultOutputFileString;
-	final private String testOutput;
 	final private String[] args;
 	
 	public CoberturaTestRunInNewJVMModule(final String testOutput, 
-			final boolean debugOutput, final Long timeout, 
-			String instrumentedClassPath, final Path dataFile, final String javaHome) {
-		this(testOutput, debugOutput, timeout, 1, instrumentedClassPath, dataFile, javaHome);
-	}
-
-	public CoberturaTestRunInNewJVMModule(final String testOutput, 
 			final boolean debugOutput, final Long timeout, final int repeatCount, 
-			String instrumentedClassPath, final Path dataFile, final String javaHome) {
-		super();
-		this.testOutput = testOutput;
-		this.resultOutputFile = 
-				Paths.get(this.testOutput).resolve("__testResult.stats.csv").toAbsolutePath();
-		this.resultOutputFileString = resultOutputFile.toString();
-
+			String instrumentedClassPath, final Path dataFile, final String javaHome, File projectDir) {
+		super(testOutput);
+		dataFile.toFile();
+		
 		this.executeModule = new ExecuteMainClassInNewJVM(
-				javaHome, 
+				//javaHome,
+				null, 
 				TestRunner.class,
-				instrumentedClassPath, null, 
+				instrumentedClassPath,
+				projectDir, 
 				"-Dnet.sourceforge.cobertura.datafile=" + dataFile.toAbsolutePath().toString())
+				.setEnvVariable("LC_ALL","en_US.UTF-8")
 				.setEnvVariable("TZ", "America/Los_Angeles");
 		
-		int arrayLength = 6;
+		int arrayLength = 8;
 		if (timeout != null) {
 			++arrayLength;
 			++arrayLength;
@@ -72,9 +62,15 @@ public class CoberturaTestRunInNewJVMModule extends AbstractProcessor<TestWrappe
 		
 		args = new String[arrayLength];
 		
+		args[0] = CmdOptions.TEST_CLASS.asArg();
+		args[2] = CmdOptions.TEST_NAME.asArg();
+		
 		int argCounter = 3;
 		args[++argCounter] = TestRunner.CmdOptions.OUTPUT.asArg();
-		args[++argCounter] = resultOutputFileString;
+		args[++argCounter] = getStatisticsResultFile().toString();
+		
+		args[++argCounter] = TestRunner.CmdOptions.PORT.asArg();
+		args[++argCounter] = String.valueOf(getServerPort());
 		
 		if (timeout != null) {
 			args[++argCounter] = TestRunner.CmdOptions.TIMEOUT.asArg();
@@ -83,33 +79,26 @@ public class CoberturaTestRunInNewJVMModule extends AbstractProcessor<TestWrappe
 		if (!debugOutput) {
 			args[++argCounter] = OptionParser.DefaultCmdOptions.SILENCE_ALL.asArg();
 		}
-	}
-
-	/* (non-Javadoc)
-	 * @see se.de.hu_berlin.informatik.utils.tm.ITransmitter#processItem(java.lang.Object)
-	 */
-	@Override
-	public TestStatistics processItem(final TestWrapper testWrapper, ProcessorSocket<TestWrapper, TestStatistics> socket) {
-		socket.forceTrack(testWrapper.toString());
-//		Log.out(this, "Now processing: '%s'.", testWrapper);
-		int result = -1;
-
-		int argCounter = -1;
-		args[++argCounter] = TestRunner.CmdOptions.TEST_CLASS.asArg();
-		args[++argCounter] = testWrapper.getTestClassName();
-		args[++argCounter] = TestRunner.CmdOptions.TEST_NAME.asArg();
-		args[++argCounter] = testWrapper.getTestMethodName();
-
-		result = executeModule.submit(args).getResult();
 		
-		if (result != 0) {
-			Log.err(CoberturaTestRunInNewJVMModule.class, testWrapper + ": Running test in separate JVM failed.");
-			return new TestStatistics(testWrapper + ": Running test in separate JVM failed.");
-		}
-
-		return new TestStatistics(Statistics.loadAndMergeFromCSV(StatisticsData.class, resultOutputFile));
+	}
+	
+	@Override
+	public boolean prepareBeforeRunningTest() {
+		// not necessary
+		return true;
+	}
+	
+	@Override
+	public String[] getArgs(String testClassName, String testMethodName) {	
+		args[1] = testClassName;
+		args[3] = testMethodName;
+		return args;
 	}
 
+	@Override
+	public ExecuteMainClassInNewJVM getMain() {
+		return executeModule;
+	}
 	
 	public final static class TestRunner {
 
@@ -123,6 +112,7 @@ public class CoberturaTestRunInNewJVMModule extends AbstractProcessor<TestWrappe
 			TEST_NAME("t", "testName", true, "The name of the test to run.", true),
 			TIMEOUT("tm", "timeout", true, "A timeout (in seconds) for the execution of each test. Tests that run "
 					+ "longer than the timeout will abort and will count as failing.", false),
+			PORT("p", "port", true, "The port to connect to and send the project data.", false),
 			OUTPUT("o", "output", true, "Path to result statistics file.", true);
 
 			/* the following code blocks should not need to be changed */
@@ -174,22 +164,72 @@ public class CoberturaTestRunInNewJVMModule extends AbstractProcessor<TestWrappe
 
 			final Path outputFile = options.isFile(CmdOptions.OUTPUT, false);
 //			final Path coberturaDataFile = Paths.get(System.getProperty("net.sourceforge.cobertura.datafile"));
-			Log.out(TestRunner.class, "Cobertura data file: '%s'.", System.getProperty("net.sourceforge.cobertura.datafile"));
+//			Log.out(TestRunner.class, "Cobertura data file: '%s'.", System.getProperty("net.sourceforge.cobertura.datafile"));
 
-			final String testClazz = options.getOptionValue(CmdOptions.TEST_CLASS);
+			final String className = options.getOptionValue(CmdOptions.TEST_CLASS);
 			final String testName = options.getOptionValue(CmdOptions.TEST_NAME);
-
-			TestRunModule testRunner = new TestRunModule(outputFile.getParent().toString(), 
+			
+			Integer port = options.getOptionValueAsInt(CmdOptions.PORT);
+			if (port == null) {
+				Log.abort(TestRunner.class, "Given port '%s' can not be parsed as an integer.", options.getOptionValue(CmdOptions.PORT));
+			}
+			
+			ExtendedTestRunModule testRunner = new ExtendedTestRunModule(outputFile.getParent().toString(), 
 					true, options.hasOption(CmdOptions.TIMEOUT) ? Long.valueOf(options.getOptionValue(CmdOptions.TIMEOUT)) : null, null);
 			
-			TestStatistics statistics = testRunner
-					.submit(new TestWrapper(testClazz, testName))
-					.getResult();
+			//turn off auto saving (removes the shutdown hook inside of Cobertura)
+			ProjectData.turnOffAutoSave();
+			
+			ProjectData projectData = null;
 
+			//(try to) run the test and get the statistics
+			TestStatistics statistics = testRunner
+					.submit(new TestWrapper(className, testName))
+					.getResult();
+			
 			testRunner.finalShutdown();
 
+			//see if the test was executed and finished execution normally
+			if (statistics.couldBeFinished()) {
+				// wait for some milliseconds
+				try {
+					Thread.sleep(50);
+				} catch (InterruptedException e) {
+					// do nothing
+				}
+				projectData = new ProjectData();
+
+				TouchCollector.applyTouchesOnProjectData(projectData);
+			}
+
+			boolean successful = SimpleServerFramework.sendToServer(
+					projectData, port, 3,
+					(r) -> {
+						if (r.equals(SEND_AGAIN)) {
+							return true;
+						} else {
+							return false;
+						}
+					},
+					(t,r) -> {
+						if (t == null && r.equals(DATA_IS_NULL) ||
+								t != null && r.equals(DATA_IS_NOT_NULL)) {
+							return true;
+						} else {
+							return false;
+						}
+					});
+
+			if (!successful) {
+				System.exit(1);
+			}
+
 			statistics.saveToCSV(outputFile);
+			
+			Runtime.getRuntime().exit(0);
 		}
+		
+		
 
 	}
 
