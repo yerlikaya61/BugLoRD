@@ -26,6 +26,7 @@ import se.de.hu_berlin.informatik.astlmbuilder.parsing.InformationWrapper;
 import se.de.hu_berlin.informatik.astlmbuilder.parsing.SymbolTable;
 import se.de.hu_berlin.informatik.astlmbuilder.parsing.VariableInfoWrapper;
 import se.de.hu_berlin.informatik.utils.miscellaneous.Log;
+import utils.ASTUtils;
 
 /**
  * Test class suite for the builder of the information wrapper objects
@@ -362,24 +363,24 @@ public class InfoWrapperBuilderTest extends TestCase {
 	private Node getSomeInterestingNode(CompilationUnit aCU) {
 
 		// get the class declaration
-		ClassOrInterfaceDeclaration cdec = getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
+		ClassOrInterfaceDeclaration cdec = ASTUtils.getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
 		if (cdec == null) {
 			return null;
 		}
 
-		MethodDeclaration calcMD = getNodeFromChildren(cdec, MethodDeclaration.class, "calcSumFromTo");
+		MethodDeclaration calcMD = ASTUtils.getNodeFromChildren(cdec, MethodDeclaration.class, "calcSumFromTo");
 		if (calcMD == null) {
 			return null;
 		}
 
 		// get the block statement
-		BlockStmt block = getNodeFromChildren(calcMD, BlockStmt.class);
+		BlockStmt block = ASTUtils.getNodeFromChildren(calcMD, BlockStmt.class);
 		if (block == null) {
 			return null;
 		}
 
 		// get the for stmt
-		ForStmt forStmt = getNodeFromChildren(block, ForStmt.class);
+		ForStmt forStmt = ASTUtils.getNodeFromChildren(block, ForStmt.class);
 		return forStmt;
 	}
 
@@ -394,18 +395,18 @@ public class InfoWrapperBuilderTest extends TestCase {
 	private Node getNestedLoopNode(CompilationUnit aCU) {
 
 		// get the class declaration
-		ClassOrInterfaceDeclaration cdec = getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
+		ClassOrInterfaceDeclaration cdec = ASTUtils.getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
 		if (cdec == null) {
 			return null;
 		}
 
-		MethodDeclaration calcMD = getNodeFromChildren(cdec, MethodDeclaration.class, "calcSumFromTo");
+		MethodDeclaration calcMD = ASTUtils.getNodeFromChildren(cdec, MethodDeclaration.class, "calcSumFromTo");
 		if (calcMD == null) {
 			return null;
 		}
 
 		// get the block statement
-		BlockStmt block = getNodeFromChildren(calcMD, BlockStmt.class);
+		BlockStmt block = ASTUtils.getNodeFromChildren(calcMD, BlockStmt.class);
 		if (block == null) {
 			return null;
 		}
@@ -432,7 +433,7 @@ public class InfoWrapperBuilderTest extends TestCase {
 		}
 
 		// get the if else stmt
-		IfStmt ifStmt = getNodeFromChildren( block, IfStmt.class );
+		IfStmt ifStmt = ASTUtils.getNodeFromChildren( block, IfStmt.class );
 		if( ifStmt == null ) {
 			return null;
 		}
@@ -456,76 +457,19 @@ public class InfoWrapperBuilderTest extends TestCase {
 	private BlockStmt getMethodBodyOfgetSomeParameters(CompilationUnit aCU) {
 
 		// get the class declaration
-		ClassOrInterfaceDeclaration cdec = getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
+		ClassOrInterfaceDeclaration cdec = ASTUtils.getNodeFromChildren(aCU, ClassOrInterfaceDeclaration.class);
 		if (cdec == null) {
 			return null;
 		}
 
-		MethodDeclaration getSP = getNodeFromChildren(cdec, MethodDeclaration.class, "getSomeParameters");
+		MethodDeclaration getSP = ASTUtils.getNodeFromChildren(cdec, MethodDeclaration.class, "getSomeParameters");
 		if (getSP == null) {
 			return null;
 		}
 
 		// get the block statement
-		BlockStmt block = getNodeFromChildren(getSP, BlockStmt.class);
+		BlockStmt block = ASTUtils.getNodeFromChildren(getSP, BlockStmt.class);
 		return block;
 	}
 
-	/**
-	 * The variant with a name currently only works for method declarations
-	 * because of the getNameAsString method
-	 * @param aParentNode
-	 * The node that has children
-	 * @param aTypeOfNode
-	 * The type of node that should be returned
-	 * @param aName
-	 * The name of the node that should be returned
-	 * @return The node with the given type and name or null
-	 */
-	@SuppressWarnings("unchecked")
-	private <T extends Node> T getNodeFromChildren(Node aParentNode, Class<T> aTypeOfNode, String aName) {
-
-		if (aParentNode == null || aParentNode.getChildNodes() == null) {
-			return null;
-		}
-
-		for (Node n : aParentNode.getChildNodes()) {
-			if (aTypeOfNode.isInstance(n)) {
-				// only works for method decs currently
-				// could be adjusted if there is a pattern to node with names
-				if (n instanceof MethodDeclaration) {
-					if (((MethodDeclaration) n).getNameAsString().equalsIgnoreCase(aName)) {
-						return (T) n;
-					}
-				}
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Searches for a node of the given type in the list of children and returns
-	 * it
-	 * @param aParentNode
-	 * The node with children
-	 * @param aTypeOfNode
-	 * The type of node that should be returned
-	 * @return The first node with the given type
-	 */
-	@SuppressWarnings("unchecked")
-	private <T extends Node> T getNodeFromChildren(Node aParentNode, Class<T> aTypeOfNode) {
-
-		if (aParentNode == null || aParentNode.getChildNodes() == null) {
-			return null;
-		}
-
-		for (Node n : aParentNode.getChildNodes()) {
-			if (aTypeOfNode.isInstance(n)) {
-				return (T) n;
-			}
-		}
-
-		return null;
-	}
 }
